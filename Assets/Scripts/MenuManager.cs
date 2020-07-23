@@ -1,6 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.SceneManagement;
 
 public class MenuManager : MonoBehaviour
@@ -12,5 +10,10 @@ public class MenuManager : MonoBehaviour
 
         PlayerPrefs.SetInt("numPlayers", numPlayers);
         SceneManager.LoadScene("Game");
+    }
+
+    public void ExitApp()
+    {
+        Application.Quit();
     }
 }
