@@ -19,8 +19,8 @@ public static class PlayersFactory
         return new Player[2];
     }
 
-    private static readonly string X_SYMBOL = "X";
-    private static readonly string O_SYMBOL = "O";
+    public static readonly string PLAYER_1_SYMBOL = "X";
+    public static readonly string PLAYER_2_SYMBOL = "O";
 
     private static Dictionary<int, GameSymbol> _playerIndexToSymbol = new Dictionary<int, GameSymbol>();
 
@@ -47,8 +47,7 @@ public static class PlayersFactory
     private static void Initialize()
     {
         // I've decided player 1 is always X, player 2 is always O
-        //UnityEngine.Debug.LogFormat("player1Color: {0}", GameManager.Instance.Colors.Player1Color);
-        _playerIndexToSymbol.Add(0, new GameSymbol(X_SYMBOL, GameManager.Instance.Colors.Player1Color));
-        _playerIndexToSymbol.Add(1, new GameSymbol(O_SYMBOL, GameManager.Instance.Colors.Player2Color));
+        _playerIndexToSymbol.Add(0, new GameSymbol(PLAYER_1_SYMBOL, GameManager.Instance.Colors.Player1Color));
+        _playerIndexToSymbol.Add(1, new GameSymbol(PLAYER_2_SYMBOL, GameManager.Instance.Colors.Player2Color));
     }
 }

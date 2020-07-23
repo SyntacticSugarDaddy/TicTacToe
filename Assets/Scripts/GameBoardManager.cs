@@ -5,27 +5,20 @@ using TMPro;
 using System;
 using UnityEngine.UI;
 using System.Linq;
-using System.Diagnostics;
-using UnityEngine.Events;
-
-//[System.Serializable]
-//public class CellClickedEvent : UnityEvent<int, bool>
-//{
-
-//}
 
 // Cells are numbered from 0 to 8, starting from top left square: left to right, top to bottom
 
 public class GameBoardManager : MonoBehaviour
 {
-    //public CellClickedEvent ClickEvent;
-
     public static event Action<int, string> MoveMade;   // Args are: cell selected, text describing who won
     
     public const int NUM_CELLS = 9;
 
     public List<int> AvailableCells { get; private set; }
-    
+
+    [SerializeField]
+    private Image _gameBackground; 
+
     [SerializeField]
     private List<Cell> _cells = new List<Cell>();
     
@@ -85,7 +78,12 @@ public class GameBoardManager : MonoBehaviour
     {
         AvailableCells = new List<int>();
         LoadWinPatterns();
-        GameManager.GameStarted += OnGameStarted;
+        GameManager.GameStartedEvent += OnGameStarted;
+
+        if (_gameBackground == null)
+            Debug.LogError("Game background image was not set in the inspector.");
+        else
+            _gameBackground.color = GameManager.Instance.Colors.GameBackgroundColor;
     }
 
     private void Start()
@@ -98,7 +96,7 @@ public class GameBoardManager : MonoBehaviour
 
     private void OnDestroy()
     {
-        GameManager.GameStarted -= OnGameStarted;
+        GameManager.GameStartedEvent -= OnGameStarted;
     }
 
     private void PopulateSymbolToCellsMap()
@@ -109,20 +107,28 @@ public class GameBoardManager : MonoBehaviour
             _symbolToClaimedCells.Add(player.Symbol.Text, new List<int>());
     }
 
-    private void OnGameStarted()
+    private void OnGameStarted(int numHumanPlayers, bool humansTurn)
+    {
+        ClearGameBoardCells();
+        ResetAvailableCells();
+        PopulateSymbolToCellsMap();
+    }
+
+    private void ClearGameBoardCells()
     {
         foreach (Cell cell in _cells)
         {
             cell.Highlight(false);
             cell.ClearSymbol();
         }
-        
+    }
+
+    private void ResetAvailableCells()
+    {
         AvailableCells.Clear();
 
         for (int i = 0; i != NUM_CELLS; ++i)
             AvailableCells.Add(i);
-
-        PopulateSymbolToCellsMap();
     }
 
     private void LoadWinPatterns()

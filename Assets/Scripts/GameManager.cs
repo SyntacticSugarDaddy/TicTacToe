@@ -1,42 +1,32 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using UnityEngine;
 using TMPro;
 using System;
-using System.Runtime.CompilerServices;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {    
-    //[HideInInspector]
-    //public bool HumansTurn { get; private set; }
-
     [HideInInspector]
     public bool GameOver = false;
 
-    public static event Action GameStarted;
+    public static event Action<int, bool> GameStartedEvent; // int => number of human players, bool => human player's turn to start
+    public static event Action<int> PlayerMovedEvent; // int => number of human players
+    public static event Action<string> GameCompletedEvent;  // string => The win message that should be displayed
 
     public static readonly int NUM_PLAYERS = 2;
 
     public ColorsConfig Colors;
 
+    public Player[] Players { get; private set; }
+    
     private enum GameStates
     {
         WAITING_FOR_PLAYER_1,
         WAITING_FOR_PLAYER_2,
         GAME_OVER
-    }
-
-    [SerializeField]
-    private TextMeshProUGUI _turnText;
-
-    [SerializeField]
-    private TextMeshProUGUI _winnerText;
-
-    [SerializeField]
-    private Button _newGameButton;
+    }    
 
     [SerializeField]
     private GameBoardManager _board;
@@ -44,8 +34,6 @@ public class GameManager : MonoBehaviour
     private int _numMoves;
     private int _numHumanPlayers;
     private GameStates _gameState;
-
-    public Player[] Players { get; private set; }
 
     private static GameManager _instance;
     public static GameManager Instance
@@ -74,25 +62,18 @@ public class GameManager : MonoBehaviour
     public void StartNewGame()
     {
         //UnityEngine.Debug.Log("StartNewGame()");        
-        _winnerText.text = "";
+        //_winnerText.text = "";
         GameOver = false;
         _numMoves = 0;        
         _numHumanPlayers = PlayerPrefs.GetInt("numPlayers");
         _gameState = GameStates.WAITING_FOR_PLAYER_1;
         CreatePlayers();
-        UpdateTurnDisplay();
+        //UpdateTurnDisplay();
+        bool humansTurn = Players[0].Type == Player.ControlType.HUMAN;
+        GameStartedEvent(_numHumanPlayers, humansTurn);
 
-        //if (_numHumanPlayers == 2)
-        //    HumansTurn = true;
-        //else
-        //    HumansTurn = Players[0].Type == Player.ControlType.HUMAN;
-
-        GameStarted();        
-
-        if (_numHumanPlayers == 1 && Players[0].Type != Player.ControlType.HUMAN)
-        {            
+        if (_numHumanPlayers == 1 && !humansTurn)        
             StartCoroutine("MakeAiMove");
-        }        
     }
 
     public List<string> GetPlayerSymbols()
@@ -138,7 +119,7 @@ public class GameManager : MonoBehaviour
         GameBoardManager.MoveMade -= OnMoveMade;    // This is needed or game crashes when you reload Game scene again after leaving
     }
 
-    private void OnMoveMade(int cellClaimed, string winner)
+    private void OnMoveMade(int cellClaimed, string winningSymbol)
     {
         //UnityEngine.Debug.LogFormat("OnMoveMade({0}, {1})", cellClaimed, winner);
         ++_numMoves;
@@ -146,87 +127,67 @@ public class GameManager : MonoBehaviour
         if (_numMoves == GameBoardManager.NUM_CELLS)
             GameOver = true;
 
-        bool gameWon = !string.IsNullOrEmpty(winner);
+        bool gameWon = !string.IsNullOrEmpty(winningSymbol);
+        string gameResultMsg = "";
 
         if (gameWon)
         {
             GameOver = true;
-            _winnerText.text = winner + " wins!";
+            gameResultMsg += GetWinnerNameFromSymbol(winningSymbol) + " wins!";            
         }
        
         if (GameOver)
-        {
-            //_newGameButton.gameObject.active = true;
-            _turnText.text = "";
-            _gameState = GameStates.GAME_OVER;
-            //UnityEngine.Debug.Log("GAME OVER CASE");
-
-            if (!gameWon)
-                _winnerText.text = "Tie game";
-        }
-        else
-        {
-            IncrementActiveGameState();            
-            UpdateTurnDisplay();
-
-            if (_numHumanPlayers == 1)
-            {
-                //HumansTurn = !HumansTurn;
-
-                //if (!HumansTurn)
-                if (GetActivePlayer().Type == Player.ControlType.AI)
-                    StartCoroutine("MakeAiMove");
-            }            
-        }
-
-        //UnityEngine.Debug.LogFormat("gameState: {0}", _gameState);
+            EndGame(gameWon ? gameResultMsg : "Tie game");
+        else        
+            ProceedToNextMove();        
     }    
 
-    //private IEnumerator MimickPlayerThinkingDelay()
-    //{
-    //    yield return new WaitForSeconds(2.0f);
-    //    //UnityEngine.Debug.Log("Timer up");
-    //}
+    private void EndGame(string gameResultMsg)
+    {
+        _gameState = GameStates.GAME_OVER;
+        GameCompletedEvent(gameResultMsg);
+    }
+
+    private void ProceedToNextMove()
+    {        
+        IncrementActiveGameState();
+        PlayerMovedEvent(_numHumanPlayers);        
+
+        if (_numHumanPlayers == 1)
+        {
+            if (GetActivePlayer().Type == Player.ControlType.AI)
+                StartCoroutine("MakeAiMove");
+        }
+    }
+
+    private string GetWinnerNameFromSymbol(string winSymbol)
+    {
+        if (_numHumanPlayers == 1)
+        {
+            foreach (Player player in Players)
+            {
+                if (player.Symbol.Text == winSymbol)
+                    return player.Type == Player.ControlType.HUMAN ? "Player" : "Computer";
+            }
+        }
+        else
+            return winSymbol;
+
+        return "ERROR";
+    }
 
     private void IncrementActiveGameState()
     {
-        if (_gameState == GameStates.WAITING_FOR_PLAYER_1)
-        {
-            _gameState = GameStates.WAITING_FOR_PLAYER_2;
-        }
-        else if (_gameState == GameStates.WAITING_FOR_PLAYER_2)
-        {
-            _gameState = GameStates.WAITING_FOR_PLAYER_1;
-        }
+        if (_gameState == GameStates.WAITING_FOR_PLAYER_1)        
+            _gameState = GameStates.WAITING_FOR_PLAYER_2;        
+        else if (_gameState == GameStates.WAITING_FOR_PLAYER_2)        
+            _gameState = GameStates.WAITING_FOR_PLAYER_1;        
         else
             UnityEngine.Debug.LogError("Improper usage");
-    }
-
-    private void UpdateTurnDisplay()
-    {
-        if (_gameState == GameStates.WAITING_FOR_PLAYER_1)
-        {
-            if (_numHumanPlayers == 1)
-                _turnText.text = Players[0].Type == Player.ControlType.HUMAN ? "Turn: Player" : "Turn: Computer";
-            else
-                _turnText.text = string.Format("Turn: {0}", Players[0].Symbol.Text);
-        }
-        else if (_gameState == GameStates.WAITING_FOR_PLAYER_2)
-        {
-            if (_numHumanPlayers == 1)
-                _turnText.text = Players[1].Type == Player.ControlType.HUMAN ? "Turn: Player" : "Turn: Computer";
-            else
-                _turnText.text = string.Format("Turn: {0}", Players[1].Symbol.Text);
-        }
-        else if (_gameState == GameStates.GAME_OVER)
-            _turnText.text = "";
-    }
+    }    
     
     private void Start()
     {        
-        if (_turnText == null || _winnerText == null)
-            UnityEngine.Debug.LogError("Menu texts not fully set");
-
         GameBoardManager.MoveMade += OnMoveMade;
         StartNewGame();        
     }    

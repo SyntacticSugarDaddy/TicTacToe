@@ -1,19 +1,12 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using System.Reflection;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System;
-using System.Diagnostics;
 
 public class Cell : MonoBehaviour
 {
     private Image _background;    
     private TextMeshProUGUI _symbol;
-
-    private static readonly UnityEngine.Color CELL_HIGHLIGHT_COLOR = UnityEngine.Color.yellow;
-    private static readonly UnityEngine.Color CELL_DEFAULT_COLOR = UnityEngine.Color.white;
 
     public void ClearSymbol()
     {
@@ -32,9 +25,9 @@ public class Cell : MonoBehaviour
         if (_background != null)
         {
             if (active)
-                _background.color = CELL_HIGHLIGHT_COLOR;
+                _background.color = GameManager.Instance.Colors.CellHighlightColor;
             else
-                _background.color = CELL_DEFAULT_COLOR;
+                _background.color = GameManager.Instance.Colors.CellDefaultColor;
         }
         else
             UnityEngine.Debug.LogError("_background is NULL");
@@ -49,14 +42,4 @@ public class Cell : MonoBehaviour
         if (_background == null || _symbol == null)
             UnityEngine.Debug.LogError("Background or symbol not set in inspector");
     }
-
-    //private void Start()
-    //{
-    //    UnityEngine.Debug.Log("Cell.cs Start()");
-    //}
-
-    //private void OnDestroy()
-    //{
-    //    UnityEngine.Debug.Log("OnDestroy called from Cell class");
-    //}
 }

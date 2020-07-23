@@ -14,16 +14,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   MenuColor:
     serializedVersion: 2
-    rgba: 14928837
+    rgba: 4293118917
   GameBackgroundColor:
     serializedVersion: 2
-    rgba: 2267607
-  CellColor:
+    rgba: 4280457687
+  CellDefaultColor:
     serializedVersion: 2
-    rgba: 12247791
+    rgba: 4290437871
+  CellHighlightColor:
+    serializedVersion: 2
+    rgba: 4278255612
   Player1Color:
     serializedVersion: 2
-    rgba: 10573376
+    rgba: 4288763456
   Player2Color:
     serializedVersion: 2
-    rgba: 2112753
+    rgba: 4280302833
