@@ -2,34 +2,23 @@
 using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
-using System;
 using UnityEngine.UI;
 using System.Linq;
+using System;
+using System.Security.Cryptography.X509Certificates;
 
-// Cells are numbered from 0 to 8, starting from top left square: left to right, top to bottom
+// Cells are numbered from 0 to 8, starting from top left square and proceeding from left to right, top to bottom:
+// [0][1][2]
+// [3][4][5]
+// [6][7][8]
 
 public class GameBoardManager : MonoBehaviour
 {
-    public static event Action<int, string> MoveMade;   // Args are: cell selected, text describing who won
+    public static event Action<int, bool> MoveMadeEvent;   // int => cell selected, bool => if the last move resulted in a win
     
     public const int NUM_CELLS = 9;
 
     public List<int> AvailableCells { get; private set; }
-
-    [SerializeField]
-    private Image _gameBackground; 
-
-    [SerializeField]
-    private List<Cell> _cells = new List<Cell>();
-    
-    private Dictionary<string, List<int>> _symbolToClaimedCells = new Dictionary<string, List<int>>();
-
-    private List<List<int>> _winPatterns = new List<List<int>>();   // Follow the same numbering scheme for the grid: left to right, top to bottom    
-
-    public bool CellAvailable(int cellIndex)
-    {
-        return AvailableCells.Contains(cellIndex);
-    }
 
     public void ClaimCellForHuman(int cellIndex)
     {        
@@ -37,47 +26,59 @@ public class GameBoardManager : MonoBehaviour
     }
 
     public void ClaimCell(int cellIndex, bool forHuman) // If not forHuman, then request is on behalf of an AI player
-    {
-        //UnityEngine.Debug.LogFormat("ClaimCell(), gameOver: {0}, cellAvailable: {1}", GameManager.Instance.GameOver, CellAvailable(cellIndex));                
-
-        if (!GameManager.Instance.GameOver && CellAvailable(cellIndex) && IsPlayersTurn(forHuman))
+    {        
+        if (GameManager.Instance.GetActivePlayer() != null && AvailableCells.Contains(cellIndex) && 
+            GameManager.Instance.IsPlayersTurn(forHuman))
         {
-            ProcessMove(cellIndex);
-            string winner = CheckForWinner();
+            string symbol = ProcessMove(cellIndex);
+            List<int> winCells = WinAnalyzer.CheckForWin(_symbolToClaimedCells[symbol]);
+            bool gameWon = winCells.Count > 0;
 
-            if (!string.IsNullOrEmpty(winner))            
-                GameManager.Instance.GameOver = true;            
+            if (gameWon)            
+                HighlightCells(winCells);
 
-            MoveMade(cellIndex, winner);
+            MoveMadeEvent(cellIndex, gameWon);
         }        
     }
 
-    private bool IsPlayersTurn(bool human)  // !human is inquiring if it is the AIs turn
+    #region private
+    [SerializeField]
+    private Image _gameBackground;
+
+    [SerializeField]
+    private List<Cell> _cells = new List<Cell>();
+
+    private Dictionary<string, List<int>> _symbolToClaimedCells = new Dictionary<string, List<int>>();
+
+    //private void DisplayWin(List<int> winCells)
+    //{
+        //GameManager.Instance.GameOver = true;
+        //winText = GameManager.Instance.GetActivePlayer().Symbol.Text;
+        //HighlightCells(winCells);
+    //}
+
+    private void HighlightCells(List<int> cells)
     {
-        Player player = GameManager.Instance.GetActivePlayer();
+        //foreach (int cellIndex in cells)
+          //  _cells[cellIndex].Highlight(true);
 
-        if (human && player.Type == Player.ControlType.HUMAN)
-            return true;
-
-        if (!human && player.Type == Player.ControlType.AI)
-            return true;
-
-        return false;
+        cells.ForEach(index => _cells[index].Highlight(true));
     }
 
-    private void ProcessMove(int cellIndex)
+    /// <returns>the symbol of the player who moved</returns>
+    private string ProcessMove(int cellIndex)
     {
         Player player = GameManager.Instance.GetActivePlayer();
         string symbol = player.Symbol.Text;
         _cells[cellIndex].SetSymbol(symbol, player.Symbol.Color);
         AvailableCells.Remove(cellIndex);
-        _symbolToClaimedCells[symbol].Add(cellIndex);        
+        _symbolToClaimedCells[symbol].Add(cellIndex);
+        return symbol;
     }
 
     private void Awake()
     {
-        AvailableCells = new List<int>();
-        LoadWinPatterns();
+        AvailableCells = new List<int>();        
         GameManager.GameStartedEvent += OnGameStarted;
 
         if (_gameBackground == null)
@@ -89,9 +90,7 @@ public class GameBoardManager : MonoBehaviour
     private void Start()
     {
         if (_cells.Count != NUM_CELLS)
-            UnityEngine.Debug.LogError("Cells were not initialized.");
-
-        //ClickEvent.AddListener(ClaimCell);
+            Debug.LogError("Cells were not initialized.");        
     }
 
     private void OnDestroy()
@@ -116,66 +115,15 @@ public class GameBoardManager : MonoBehaviour
 
     private void ClearGameBoardCells()
     {
-        foreach (Cell cell in _cells)
-        {
-            cell.Highlight(false);
-            cell.ClearSymbol();
-        }
+        //foreach (Cell cell in _cells)        
+          //  cell.Reset();
+
+        _cells.ForEach(cell => cell.Reset());
     }
 
     private void ResetAvailableCells()
     {
-        AvailableCells.Clear();
-
-        for (int i = 0; i != NUM_CELLS; ++i)
-            AvailableCells.Add(i);
+        AvailableCells = Enumerable.Range(0, NUM_CELLS).ToList();
     }
-
-    private void LoadWinPatterns()
-    {
-        _winPatterns.Add(new List<int> { 0, 1, 2 });    // top row
-        _winPatterns.Add(new List<int> { 3, 4, 5 });    // middle row
-        _winPatterns.Add(new List<int> { 6, 7, 8 });    // bottom row
-        _winPatterns.Add(new List<int> { 0, 3, 6 });    // left column
-        _winPatterns.Add(new List<int> { 1, 4, 7 });    // center column
-        _winPatterns.Add(new List<int> { 2, 5, 8 });    // right column
-        _winPatterns.Add(new List<int> { 0, 4, 8 });    // diagonal 1
-        _winPatterns.Add(new List<int> { 6, 4, 2 });    // diagonal 2
-    }
-
-    private string CheckForWinner()
-    {
-        List<string> symbols = GameManager.Instance.GetPlayerSymbols();
-
-        foreach (string symbol in symbols)
-        {
-            if (SymbolWins(symbol))
-                return symbol;
-        }        
-
-        return "";
-    }
-
-    private bool SymbolWins(string symbol)
-    {
-        List<int> playedMovesForSymbol = GetMovesForSymbol(symbol);
-
-        foreach (List<int> pattern in _winPatterns)
-        {
-            if (!pattern.Except(playedMovesForSymbol).Any())
-            {
-                foreach (int cellIndex in pattern)
-                    _cells[cellIndex].Highlight(true);
-
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private List<int> GetMovesForSymbol(string symbol)
-    {        
-        return _symbolToClaimedCells[symbol];
-    }
+    #endregion
 }

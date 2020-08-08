@@ -40,10 +40,23 @@ public class GameMenuManager : MonoBehaviour
             _turnText.text = string.Format("Turn: {0}", player.Symbol.Text);        
     }
 
-    private void DisplayGameResult(string winMessage)
+    private void DisplayGameResult(Player winner, int numHumanPlayers)
     {
-        _turnText.text = "";        
-        _winnerText.text = winMessage;
+        _turnText.text = "";
+        _winnerText.text = winner == null ? "TIE GAME" : GetWinMessage(winner, numHumanPlayers);
+    }
+    
+    private string GetWinMessage(Player winner, int numHumanPlayers)
+    {
+        string winSymbol = winner.Symbol.Text, winMessage = "";
+
+        if (numHumanPlayers == 2)
+            winMessage = winSymbol;
+        else
+            winMessage = winner.Type == Player.ControlType.HUMAN ? "PLAYER" : "COMPUTER";
+
+        winMessage += " WINS!";
+        return winMessage;
     }
 
     private void OnDestroy()

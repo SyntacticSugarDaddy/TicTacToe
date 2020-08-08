@@ -6,7 +6,7 @@ public class MenuManager : MonoBehaviour
     public void LoadGame(int numPlayers)
     {
         if (numPlayers != 1 && numPlayers != 2)
-            UnityEngine.Debug.LogErrorFormat("Invalid number of players: {0}", numPlayers);
+            Debug.LogErrorFormat("Invalid number of players: {0}", numPlayers);
 
         PlayerPrefs.SetInt("numPlayers", numPlayers);
         SceneManager.LoadScene("Game");

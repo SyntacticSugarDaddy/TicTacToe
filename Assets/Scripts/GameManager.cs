@@ -5,37 +5,20 @@ using TMPro;
 using System;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using System.Linq;
 
 public class GameManager : MonoBehaviour
-{    
-    [HideInInspector]
-    public bool GameOver = false;
-
+{
     public static event Action<int, bool> GameStartedEvent; // int => number of human players, bool => human player's turn to start
     public static event Action<int> PlayerMovedEvent; // int => number of human players
-    public static event Action<string> GameCompletedEvent;  // string => The win message that should be displayed
+    public static event Action<Player, int> GameCompletedEvent;  // Player => the winner, int => the num human players in the game
 
     public static readonly int NUM_PLAYERS = 2;
 
     public ColorsConfig Colors;
 
     public Player[] Players { get; private set; }
-    
-    private enum GameStates
-    {
-        WAITING_FOR_PLAYER_1,
-        WAITING_FOR_PLAYER_2,
-        GAME_OVER
-    }    
-
-    [SerializeField]
-    private GameBoardManager _board;
-
-    private int _numMoves;
-    private int _numHumanPlayers;
-    private GameStates _gameState;
-
-    private static GameManager _instance;
+        
     public static GameManager Instance
     {
         get
@@ -49,26 +32,32 @@ public class GameManager : MonoBehaviour
 
     public Player GetActivePlayer()
     {
-        if (_gameState == GameStates.WAITING_FOR_PLAYER_1)
+        if (_gameState == GameState.WAITING_FOR_PLAYER_1)
             return Players[0];
 
-        if (_gameState == GameStates.WAITING_FOR_PLAYER_2)
+        if (_gameState == GameState.WAITING_FOR_PLAYER_2)
+            return Players[1];
+        
+        return null;
+    }
+
+    public Player GetWinningPlayer()
+    {
+        if (_gameState == GameState.GAME_OVER_PLAYER_1_WIN)
+            return Players[0];
+
+        if (_gameState == GameState.GAME_OVER_PLAYER_2_WIN)
             return Players[1];
 
-        UnityEngine.Debug.LogError("Unexpected case");
         return null;
     }
 
     public void StartNewGame()
     {
-        //UnityEngine.Debug.Log("StartNewGame()");        
-        //_winnerText.text = "";
-        GameOver = false;
         _numMoves = 0;        
         _numHumanPlayers = PlayerPrefs.GetInt("numPlayers");
-        _gameState = GameStates.WAITING_FOR_PLAYER_1;
+        _gameState = GameState.WAITING_FOR_PLAYER_1;
         CreatePlayers();
-        //UpdateTurnDisplay();
         bool humansTurn = Players[0].Type == Player.ControlType.HUMAN;
         GameStartedEvent(_numHumanPlayers, humansTurn);
 
@@ -78,13 +67,51 @@ public class GameManager : MonoBehaviour
 
     public List<string> GetPlayerSymbols()
     {
-        List<string> symbols = new List<string>();
+        return Players.Select(p => p.Symbol.Text).ToList();
+        //List<string> symbols = new List<string>();
 
-        foreach (Player player in Players)
-            symbols.Add(player.Symbol.Text);
+        //foreach (Player player in Players)
+        //    symbols.Add(player.Symbol.Text);
 
-        return symbols;
+        //return symbols;
     }
+
+    /// <summary>    
+    /// </summary>
+    /// <param name="human">
+    /// human => inquiring if it is a human player's turn
+    /// !human => inquiring if it is the AIs turn
+    /// </param>
+    /// <returns>Whether the player type specified by the param matches the active player type</returns>
+
+    public bool IsPlayersTurn(bool human) 
+    {        
+        if (human && GetActivePlayer().Type == Player.ControlType.HUMAN)
+            return true;
+
+        if (!human && GetActivePlayer().Type == Player.ControlType.AI)
+            return true;
+
+        return false;
+    }
+
+    private enum GameState
+    {
+        WAITING_FOR_PLAYER_1,
+        WAITING_FOR_PLAYER_2,
+        GAME_OVER_PLAYER_1_WIN,
+        GAME_OVER_PLAYER_2_WIN,
+        GAME_OVER_TIE,
+    }
+
+    [SerializeField]
+    private GameBoardManager _board;
+    
+    private int _numMoves;
+    private int _numHumanPlayers;
+    private GameState _gameState;
+
+    private static GameManager _instance;
 
     private void CreatePlayers()
     {       
@@ -101,52 +128,37 @@ public class GameManager : MonoBehaviour
     {
         if (_numHumanPlayers != 1)
         {
-            UnityEngine.Debug.LogError("Unexpected case.");
+            Debug.LogError("Unexpected case.");
             yield break;
         }
-
-        //UnityEngine.Debug.LogFormat("MakeAiMove(), gameState = {0}", _gameState);        
-        yield return new WaitForSeconds(2.0f);  // Delay to mimick a player thinking (computer processing)
-        //UnityEngine.Debug.Log("After yield return waitforseconds");
+        
+        yield return new WaitForSeconds(2.0f);  // Delay to mimick a player thinking (computer processing)        
         List<int> freeCells = _board.AvailableCells;
-        int randomCell = UnityEngine.Random.Range(0, freeCells.Count - 1);
-        //UnityEngine.Debug.LogFormat("MakeAiMove(): Claiming cell {0} for computer", freeCells[randomCell]);
+        int randomCell = UnityEngine.Random.Range(0, freeCells.Count - 1);     
         _board.ClaimCell(freeCells[randomCell], false);
     }
 
     private void OnDestroy()
     {        
-        GameBoardManager.MoveMade -= OnMoveMade;    // This is needed or game crashes when you reload Game scene again after leaving
+        GameBoardManager.MoveMadeEvent -= OnMoveMade;    // This is needed or game crashes when you reload Game scene again after leaving
     }
 
-    private void OnMoveMade(int cellClaimed, string winningSymbol)
-    {
-        //UnityEngine.Debug.LogFormat("OnMoveMade({0}, {1})", cellClaimed, winner);
-        ++_numMoves;
-
-        if (_numMoves == GameBoardManager.NUM_CELLS)
-            GameOver = true;
-
-        bool gameWon = !string.IsNullOrEmpty(winningSymbol);
+    private void OnMoveMade(int cellClaimed, bool gameWon)
+    {        
+        ++_numMoves;        
+        bool gameOver = gameWon || _numMoves == GameBoardManager.NUM_CELLS;
         string gameResultMsg = "";
 
         if (gameWon)
-        {
-            GameOver = true;
-            gameResultMsg += GetWinnerNameFromSymbol(winningSymbol) + " wins!";            
-        }
+            _gameState = _numMoves % 2 == 0 ? GameState.GAME_OVER_PLAYER_2_WIN : GameState.GAME_OVER_PLAYER_1_WIN;
+        else if (gameOver)
+            _gameState = GameState.GAME_OVER_TIE;
        
-        if (GameOver)
-            EndGame(gameWon ? gameResultMsg : "Tie game");
+        if (gameOver)
+            GameCompletedEvent(GetWinningPlayer(), _numHumanPlayers);             
         else        
             ProceedToNextMove();        
     }    
-
-    private void EndGame(string gameResultMsg)
-    {
-        _gameState = GameStates.GAME_OVER;
-        GameCompletedEvent(gameResultMsg);
-    }
 
     private void ProceedToNextMove()
     {        
@@ -158,37 +170,21 @@ public class GameManager : MonoBehaviour
             if (GetActivePlayer().Type == Player.ControlType.AI)
                 StartCoroutine("MakeAiMove");
         }
-    }
-
-    private string GetWinnerNameFromSymbol(string winSymbol)
-    {
-        if (_numHumanPlayers == 1)
-        {
-            foreach (Player player in Players)
-            {
-                if (player.Symbol.Text == winSymbol)
-                    return player.Type == Player.ControlType.HUMAN ? "Player" : "Computer";
-            }
-        }
-        else
-            return winSymbol;
-
-        return "ERROR";
-    }
+    }    
 
     private void IncrementActiveGameState()
     {
-        if (_gameState == GameStates.WAITING_FOR_PLAYER_1)        
-            _gameState = GameStates.WAITING_FOR_PLAYER_2;        
-        else if (_gameState == GameStates.WAITING_FOR_PLAYER_2)        
-            _gameState = GameStates.WAITING_FOR_PLAYER_1;        
+        if (_gameState == GameState.WAITING_FOR_PLAYER_1)        
+            _gameState = GameState.WAITING_FOR_PLAYER_2;        
+        else if (_gameState == GameState.WAITING_FOR_PLAYER_2)        
+            _gameState = GameState.WAITING_FOR_PLAYER_1;        
         else
-            UnityEngine.Debug.LogError("Improper usage");
+            Debug.LogError("Improper usage");
     }    
     
     private void Start()
     {        
-        GameBoardManager.MoveMade += OnMoveMade;
+        GameBoardManager.MoveMadeEvent += OnMoveMade;
         StartNewGame();        
     }    
 }
