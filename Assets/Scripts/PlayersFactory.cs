@@ -3,24 +3,24 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public static class PlayersFactory
-{
+{    
+    public static readonly string PLAYER_1_SYMBOL = "X";
+    public static readonly string PLAYER_2_SYMBOL = "O";
+
     public static Player[] GetPlayers(int numHumanPlayers)
     {
-        if (_playerIndexToSymbol.Count == 0)        
+        if (_playerIndexToSymbol.Count == 0)
             Initialize();
 
         if (numHumanPlayers == 2)
-            return GetTwoPlayerGamePlayers();                    
+            return GetTwoPlayerGamePlayers();
 
-        if (numHumanPlayers == 1)        
+        if (numHumanPlayers == 1)
             return GetOnePlayerGamePlayers();
-                
+
         UnityEngine.Debug.LogErrorFormat("Invalid parameters numHumanPlayers: {0}", numHumanPlayers);
         return new Player[2];
     }
-
-    public static readonly string PLAYER_1_SYMBOL = "X";
-    public static readonly string PLAYER_2_SYMBOL = "O";
 
     private static Dictionary<int, GameSymbol> _playerIndexToSymbol = new Dictionary<int, GameSymbol>();
 

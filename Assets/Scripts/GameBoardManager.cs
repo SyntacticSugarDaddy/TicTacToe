@@ -115,9 +115,6 @@ public class GameBoardManager : MonoBehaviour
 
     private void ClearGameBoardCells()
     {
-        //foreach (Cell cell in _cells)        
-          //  cell.Reset();
-
         _cells.ForEach(cell => cell.Reset());
     }
 

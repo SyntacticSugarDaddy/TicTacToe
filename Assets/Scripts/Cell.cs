@@ -3,18 +3,10 @@ using UnityEngine.UI;
 using TMPro;
 
 public class Cell : MonoBehaviour
-{
-    private Image _background;    
-    private TextMeshProUGUI _symbol;
-
-    //public void ClearSymbol()
-    //{
-    //    _symbol.text = "";
-    //}
-
+{    
     public void Reset()
     {
-        SetSymbol("", UnityEngine.Color.white); // Color doesn't matter
+        SetSymbol("", UnityEngine.Color.white); // Color doesn't matter since the text is empty
         Highlight(false);
     }
 
@@ -36,6 +28,9 @@ public class Cell : MonoBehaviour
         else
             Debug.LogError("_background is NULL");
     }
+
+    private Image _background;
+    private TextMeshProUGUI _symbol;
 
     private void Awake()
     {        

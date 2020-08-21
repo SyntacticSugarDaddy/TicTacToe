@@ -253,7 +253,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 11ee18b4873488e49b94bcbbf7420ed7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GameOver: 0
   Colors: {fileID: 11400000, guid: 594f3010f8bfdd348a5263b50515a2b4, type: 2}
   _board: {fileID: 656201047}
 --- !u!4 &127697287
